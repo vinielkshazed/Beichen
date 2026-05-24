@@ -1535,7 +1535,7 @@
       const response = await fetch(`/api/nasdaq-impact?rt=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(response.status === 404
-          ? "请通过本地服务地址打开页面"
+          ? "实时接口不可用，请确认通过网站地址打开页面"
           : `纳指估值读取失败：${response.status}`);
       }
       const data = await response.json();
