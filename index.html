@@ -961,6 +961,8 @@
     let usdCnyRate = toPositiveNumber(localStorage.getItem("nasdaq-usd-cny-rate")) || 7.2;
     let isRefreshing = false;
     let refreshError = "";
+    let referenceRealtimeRate = null;
+    let referenceRealtimeTime = "";
 
     const rowsEl = document.getElementById("fundRows");
     const totalAmountLabelEl = document.getElementById("totalAmountLabel");
@@ -1212,30 +1214,47 @@
       const closeWeighted = totalAmount === 0 ? 0 : funds.reduce((sum, fund) => sum + toNumber(fund.amount) * toNumber(fund.closeRate), 0) / totalAmount;
       const realtimeLoaded = realtimeFunds.length;
       const closeLoaded = funds.filter((fund) => fund.closeSource && !fund.closeError).length;
+      const hasReferenceRealtime = referenceRealtimeRate !== null;
+      const isEmptyHoldings = funds.length === 0;
 
       totalAmountLabelEl.textContent = currencyMode === "usd" ? "当前持仓合计（美元折算）" : "当前持仓合计（人民币）";
       totalProfitLabelEl.textContent = currencyMode === "usd" ? "实时收益合计（美元折算）" : "实时收益合计（人民币）";
       closeProfitLabelEl.textContent = currencyMode === "usd" ? "收盘收益合计（美元折算）" : "收盘收益合计（人民币）";
       totalAmountEl.textContent = formatMoneyPrimary(totalAmount);
       totalAmountAltEl.textContent = formatMoneyAlt(totalAmount, "amount");
-      totalProfitEl.textContent = realtimeLoaded ? formatMoneyPrimary(realtimeProfit) : "等待实时数据";
-      totalProfitAltEl.textContent = realtimeLoaded ? formatMoneyAlt(realtimeProfit, "profit") : "请通过本地服务地址打开页面";
+      totalProfitEl.textContent = realtimeLoaded ? formatMoneyPrimary(realtimeProfit) : "请先新增持仓";
+      totalProfitAltEl.textContent = realtimeLoaded
+        ? formatMoneyAlt(realtimeProfit, "profit")
+        : hasReferenceRealtime
+          ? `纳指100实时参考 ${formatPlain(referenceRealtimeRate)}%`
+          : "刷新后显示纳指100参考涨跌幅";
       totalProfitEl.className = realtimeLoaded ? tone(realtimeProfit) : "neutral";
       closeProfitEl.textContent = formatMoneyPrimary(closeProfit);
       closeProfitAltEl.textContent = formatMoneyAlt(closeProfit, "profit");
       closeProfitEl.className = tone(closeProfit);
-      loadedCountEl.textContent = realtimeLoaded ? `实时 ${formatPlain(realtimeWeighted)}%` : "实时 --";
-      loadedCountEl.className = realtimeLoaded ? tone(realtimeWeighted) : "neutral";
-      weightedRateEl.textContent = `收盘 ${formatPlain(closeWeighted)}% · 数据 ${realtimeLoaded}/${funds.length} / ${closeLoaded}/${funds.length}`;
+      loadedCountEl.textContent = realtimeLoaded
+        ? `实时 ${formatPlain(realtimeWeighted)}%`
+        : hasReferenceRealtime
+          ? `参考 ${formatPlain(referenceRealtimeRate)}%`
+          : "实时 --";
+      loadedCountEl.className = realtimeLoaded ? tone(realtimeWeighted) : hasReferenceRealtime ? tone(referenceRealtimeRate) : "neutral";
+      weightedRateEl.textContent = isEmptyHoldings
+        ? `${hasReferenceRealtime ? "纳指估值已加载" : "等待纳指估值"} · 新增持仓后计算收益`
+        : `收盘 ${formatPlain(closeWeighted)}% · 数据 ${realtimeLoaded}/${funds.length} / ${closeLoaded}/${funds.length}`;
       weightedRateEl.className = tone(closeWeighted);
       holdingsStatsEl.innerHTML = `
         <span class="stat-chip">持仓 ${funds.length} 只</span>
         <span class="stat-chip">实时 ${realtimeLoaded}/${funds.length}</span>
         <span class="stat-chip">收盘 ${closeLoaded}/${funds.length}</span>
+        ${hasReferenceRealtime ? `<span class="stat-chip">纳指参考 ${formatPlain(referenceRealtimeRate)}%</span>` : ""}
         <span class="stat-chip">合计 ${formatMoneyPrimary(totalAmount)}</span>
       `;
       if (refreshError) {
         dataStatusEl.textContent = refreshError;
+      } else if (isEmptyHoldings && hasReferenceRealtime) {
+        dataStatusEl.textContent = "纳指估值已加载，新增基金后计算收益";
+      } else if (isEmptyHoldings) {
+        dataStatusEl.textContent = "请先新增基金";
       } else if (realtimeLoaded === funds.length && closeLoaded === funds.length) {
         dataStatusEl.textContent = "实时与收盘数据已加载";
       } else {
@@ -1482,6 +1501,8 @@
       const indexRate = findImpactIndexRate(data);
       const impactFunds = Array.isArray(data?.category1mpacts) ? data.category1mpacts : [];
       const timestamp = data?.timestamp ? `估值 ${data.timestamp}` : "";
+      referenceRealtimeRate = indexRate;
+      referenceRealtimeTime = timestamp;
 
       funds.forEach((fund) => {
         const match = fund.category === "passive" ? null : findImpactFundMatch(fund, impactFunds);
