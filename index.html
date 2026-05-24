@@ -17,6 +17,7 @@
       --blue: #1d4ed8;
       --teal: #0f766e;
       --amber: #a15c07;
+      --violet: #6d28d9;
       --shadow: 0 18px 45px rgba(28, 39, 59, 0.08);
     }
 
@@ -29,7 +30,8 @@
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       background:
-        linear-gradient(180deg, rgba(29, 78, 216, 0.08), transparent 280px),
+        linear-gradient(180deg, rgba(29, 78, 216, 0.09), transparent 250px),
+        linear-gradient(135deg, rgba(15, 118, 110, 0.08), transparent 360px),
         var(--paper);
       color: var(--ink);
       letter-spacing: 0;
@@ -53,6 +55,7 @@
       justify-content: space-between;
       gap: 20px;
       margin-bottom: 20px;
+      padding: 8px 0 2px;
     }
 
     h1 {
@@ -68,6 +71,20 @@
       font-size: 15px;
       line-height: 1.6;
       max-width: 760px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin-bottom: 10px;
+      padding: 0 9px;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 999px;
+      background: rgba(237, 247, 245, 0.9);
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 760;
     }
 
     .actions {
@@ -141,15 +158,37 @@
     }
 
     .metric {
+      position: relative;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 18px;
+      padding: 18px 18px 16px;
       box-shadow: var(--shadow);
       min-height: 126px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 4px;
+      background: #183153;
+    }
+
+    .metric:nth-child(2)::before {
+      background: var(--red);
+    }
+
+    .metric:nth-child(3)::before {
+      background: var(--teal);
+    }
+
+    .metric:nth-child(4)::before {
+      background: var(--violet);
     }
 
     .metric span {
@@ -196,12 +235,14 @@
 
     .holdings-panel {
       border-color: #b8c6d8;
-      box-shadow: 0 22px 58px rgba(24, 49, 83, 0.12);
+      box-shadow: 0 24px 62px rgba(24, 49, 83, 0.13);
       order: 1;
     }
 
     .holdings-head {
-      background: linear-gradient(180deg, #ffffff, #f7faff);
+      background:
+        linear-gradient(180deg, #ffffff, #f7faff),
+        linear-gradient(90deg, rgba(24, 49, 83, 0.08), transparent);
       align-items: flex-start;
     }
 
@@ -298,6 +339,7 @@
       max-height: min(68vh, 760px);
       overflow-x: auto;
       overflow-y: auto;
+      background: #ffffff;
     }
 
     table {
@@ -339,6 +381,38 @@
 
     tbody tr:hover .fund-cell {
       border-left-color: #183153;
+    }
+
+    .empty-row td {
+      padding: 0;
+      border-bottom: 0;
+    }
+
+    .empty-state {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      margin: 16px;
+      padding: 22px;
+      border: 1px dashed #c8d4e4;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(237, 247, 245, 0.7)),
+        #fbfcfe;
+    }
+
+    .empty-state strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .empty-state span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
     }
 
     .code {
@@ -449,8 +523,13 @@
 
     .side {
       display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
       gap: 18px;
       order: 2;
+    }
+
+    .side > .panel:last-child {
+      align-self: start;
     }
 
     .add-dialog {
@@ -534,7 +613,7 @@
       padding: 14px;
       border: 1px solid #e3e8ef;
       border-radius: 8px;
-      background: #fbfcfe;
+      background: linear-gradient(180deg, #fbfcfe, #f7fbfa);
       color: var(--muted);
       font-size: 13px;
       line-height: 1.55;
@@ -612,6 +691,10 @@
       .side {
         grid-template-columns: 1fr;
       }
+
+      .empty-state {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 560px) {
@@ -645,6 +728,7 @@
   <main class="app">
     <section class="topbar">
       <div>
+        <div class="eyebrow">公开版收益估算工具</div>
         <h1>纳斯达克基金每日收益计算器</h1>
         <p class="subtitle">公开版不预置个人持仓。添加自己的纳斯达克基金和金额后，页面会按每支基金拆成两套收益：实时收益参考纳指估值网站，收盘收益参考基金估值字段并支持手动修正。</p>
       </div>
@@ -1107,6 +1191,23 @@
 
     function render() {
       rowsEl.innerHTML = "";
+      if (funds.length === 0) {
+        const row = document.createElement("tr");
+        row.className = "empty-row";
+        row.innerHTML = `
+          <td colspan="9">
+            <div class="empty-state">
+              <div>
+                <strong>先添加一只基金，收益明细会在这里展开</strong>
+                <span>页面已加载纳指实时参考涨跌幅；添加持仓金额后，会自动计算每只基金的实时收益和收盘收益。</span>
+              </div>
+              <button class="btn primary empty-add-btn" type="button">新增基金</button>
+            </div>
+          </td>
+        `;
+        row.querySelector(".empty-add-btn").addEventListener("click", openAddPanel);
+        rowsEl.appendChild(row);
+      }
       funds.forEach((fund, index) => {
         const hasRealtime = hasRealtimeData(fund);
         const realtimeProfit = hasRealtime ? dailyProfit(fund.amount, fund.realtimeRate) : 0;
