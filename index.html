@@ -1,0 +1,1695 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>纳斯达克基金每日收益计算器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #647282;
+      --line: #d8dee7;
+      --paper: #f6f8fb;
+      --panel: #ffffff;
+      --green: #137a4f;
+      --red: #b42318;
+      --blue: #1d4ed8;
+      --teal: #0f766e;
+      --amber: #a15c07;
+      --shadow: 0 18px 45px rgba(28, 39, 59, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        linear-gradient(180deg, rgba(29, 78, 216, 0.08), transparent 280px),
+        var(--paper);
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 38px);
+      line-height: 1.12;
+      font-weight: 760;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(20, 31, 48, 0.06);
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      cursor: wait;
+      opacity: 0.92;
+    }
+
+    .btn:hover {
+      border-color: #9aa8b8;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled:hover {
+      transform: none;
+    }
+
+    .btn.primary {
+      background: #183153;
+      border-color: #183153;
+      color: white;
+    }
+
+    .btn.loading {
+      border-color: #2563eb;
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14), 0 12px 24px rgba(37, 99, 235, 0.18);
+    }
+
+    .btn.loading::before {
+      content: "";
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex: 0 0 auto;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      min-height: 126px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 12px;
+      font-size: clamp(23px, 2.5vw, 34px);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .converted {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 520;
+      overflow-wrap: anywhere;
+    }
+
+    .positive {
+      color: var(--red);
+    }
+
+    .negative {
+      color: var(--green);
+    }
+
+    .neutral {
+      color: var(--ink);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .holdings-panel {
+      border-color: #b8c6d8;
+      box-shadow: 0 22px 58px rgba(24, 49, 83, 0.12);
+      order: 1;
+    }
+
+    .holdings-head {
+      background: linear-gradient(180deg, #ffffff, #f7faff);
+      align-items: flex-start;
+    }
+
+    .holdings-title {
+      display: grid;
+      gap: 10px;
+    }
+
+    .holdings-title h2 {
+      font-size: 20px;
+    }
+
+    .holdings-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: #eef4fb;
+      color: #183153;
+      font-size: 12px;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .holdings-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.3;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      min-height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .status.refreshing {
+      color: #1d4ed8;
+      background: #eff6ff;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12), 0 0 0 6px rgba(37, 99, 235, 0.06);
+      animation: pulseStatus 1.1s ease-in-out infinite;
+    }
+
+    .status.refreshing::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+    }
+
+    .table-wrap {
+      max-height: min(68vh, 760px);
+      overflow-x: auto;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1040px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 13px 12px;
+      border-bottom: 1px solid #e7ebf0;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 680;
+      background: #fbfcfe;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      box-shadow: 0 1px 0 #e7ebf0;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:hover {
+      background: #fbfdff;
+    }
+
+    .fund-cell {
+      border-left: 3px solid transparent;
+    }
+
+    tbody tr:hover .fund-cell {
+      border-left-color: #183153;
+    }
+
+    .code {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 560;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fund-name {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 760;
+      max-width: 180px;
+      line-height: 1.35;
+    }
+
+    .money-input,
+    .rate-input,
+    .mode-select,
+    .add-select,
+    .manual-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: white;
+    }
+
+    .money-input {
+      max-width: 132px;
+    }
+
+    .money-cell {
+      min-width: 145px;
+    }
+
+    .rate-wrap {
+      display: grid;
+      grid-template-columns: minmax(76px, 1fr) 18px;
+      align-items: center;
+      gap: 6px;
+      max-width: 110px;
+    }
+
+    .rate-wrap.readonly {
+      grid-template-columns: auto 22px;
+      max-width: none;
+      color: var(--ink);
+      font-weight: 720;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .profit {
+      font-weight: 760;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .profit-cell,
+    .rate-cell {
+      background: #fffdfb;
+    }
+
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #edf7f5;
+      color: var(--teal);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .source-pill.warn {
+      background: #fff6e6;
+      color: var(--amber);
+    }
+
+    .source-stack {
+      display: grid;
+      gap: 6px;
+      align-items: start;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulseStatus {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-1px);
+      }
+    }
+
+    .side {
+      display: grid;
+      gap: 18px;
+      order: 2;
+    }
+
+    .add-dialog {
+      width: min(560px, calc(100vw - 32px));
+      max-height: min(760px, calc(100vh - 48px));
+      margin: auto;
+      padding: 0;
+      border: 1px solid var(--line);
+    }
+
+    .add-dialog::backdrop {
+      background: rgba(23, 32, 42, 0.38);
+      backdrop-filter: blur(3px);
+    }
+
+    .add-dialog[open] {
+      display: block;
+    }
+
+    .add-dialog .add-form {
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+    }
+
+    .settings {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .add-form {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .add-grid {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 10px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: #e3e8ef;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .helper {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .formula {
+      padding: 14px;
+      border: 1px solid #e3e8ef;
+      border-radius: 8px;
+      background: #fbfcfe;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .note {
+      padding: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .note strong {
+      color: var(--ink);
+    }
+
+    .scenario {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .scenario-result {
+      padding: 12px 14px 18px;
+      font-weight: 760;
+      font-size: 20px;
+    }
+
+    .scenario-result .converted {
+      font-size: 13px;
+      font-weight: 560;
+    }
+
+    .timestamp {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .remove-btn {
+      border: 1px solid #f0c7c2;
+      color: var(--red);
+      background: #fff7f6;
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .remove-btn:hover {
+      border-color: #e4978d;
+      background: #fff1ef;
+    }
+
+    .add-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        flex-direction: column;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .summary,
+      .layout,
+      .side {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: min(100vw - 20px, 1180px);
+        padding-top: 18px;
+      }
+
+      .summary {
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 104px;
+        padding: 14px;
+      }
+
+      .panel-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .add-grid,
+      .manual-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="topbar">
+      <div>
+        <h1>纳斯达克基金每日收益计算器</h1>
+        <p class="subtitle">公开版不预置个人持仓。添加自己的纳斯达克基金和金额后，页面会按每支基金拆成两套收益：实时收益参考纳指估值网站，收盘收益参考基金估值字段并支持手动修正。</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="refreshBtn" type="button" title="刷新实时涨跌幅">刷新涨跌幅</button>
+        <button class="btn" id="resetBtn" type="button" title="清空本地持仓和修改">清空持仓</button>
+      </div>
+    </section>
+
+    <section class="summary" aria-label="收益汇总">
+      <div class="metric">
+        <span id="totalAmountLabel">当前持仓合计（人民币）</span>
+        <strong id="totalAmount">--</strong>
+        <div class="converted" id="totalAmountAlt"></div>
+      </div>
+      <div class="metric">
+        <span id="totalProfitLabel">实时收益合计（人民币）</span>
+        <strong id="totalProfit">--</strong>
+        <div class="converted" id="totalProfitAlt"></div>
+      </div>
+      <div class="metric">
+        <span id="closeProfitLabel">收盘收益合计（人民币）</span>
+        <strong id="closeProfit">--</strong>
+        <div class="converted" id="closeProfitAlt"></div>
+      </div>
+      <div class="metric">
+        <span>加权涨跌幅</span>
+        <strong id="loadedCount">0/3</strong>
+        <div class="converted" id="weightedRate">--</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel holdings-panel">
+        <div class="panel-head holdings-head">
+          <div class="holdings-title">
+            <h2>持仓基金收益明细</h2>
+            <div class="holdings-stats" id="holdingsStats">
+              <span class="stat-chip">持仓 0 只</span>
+              <span class="stat-chip">实时 0/0</span>
+              <span class="stat-chip">收盘 0/0</span>
+            </div>
+          </div>
+          <div class="holdings-actions">
+            <div class="status" id="dataStatus">等待刷新</div>
+            <button class="btn" id="jumpAddBtn" type="button">新增基金</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>基金</th>
+                <th>持仓金额（人民币）</th>
+                <th>实时涨跌幅</th>
+                <th>实时收益（人民币）</th>
+                <th>收盘涨跌幅</th>
+                <th>收盘收益（人民币）</th>
+                <th>净值/时间</th>
+                <th>数据状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="fundRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="side">
+        <dialog class="panel add-dialog" id="addPanel">
+          <div class="panel-head">
+            <h2>新增基金</h2>
+            <button class="btn" id="closeAddBtn" type="button">关闭</button>
+          </div>
+          <div class="add-form">
+            <div class="field">
+              <label for="fundType">基金类型</label>
+              <select class="add-select" id="fundType">
+                <option value="passive">被动基：纳斯达克100指数/ETF联接（人民币份额）</option>
+                <option value="active">主动/主题基：海外科技/纳指相关QDII</option>
+                <option value="all">全部基金名称</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="fundSearch">搜索基金</label>
+              <input class="manual-input" id="fundSearch" type="search" autocomplete="off" placeholder="输入名称、代码或基金公司">
+              <div class="helper" id="fundSearchHint">当前显示全部匹配基金。</div>
+            </div>
+            <div class="field">
+              <label for="fundChoice">搜索结果</label>
+              <select class="add-select" id="fundChoice"></select>
+              <div class="helper" id="fundChoiceHint">选择后填写支付宝持仓金额即可加入。</div>
+            </div>
+            <div class="add-grid">
+              <div class="field">
+                <label for="newAmount">持仓金额（人民币）</label>
+                <input class="manual-input" id="newAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="例如 1000">
+              </div>
+              <button class="btn primary" id="addFundBtn" type="button">加入</button>
+            </div>
+            <div class="divider">自定义基金</div>
+            <div class="manual-grid">
+              <div class="field">
+                <label for="customCode">代码</label>
+                <input class="manual-input" id="customCode" maxlength="6" inputmode="numeric" placeholder="000000">
+              </div>
+              <div class="field">
+                <label for="customName">名称</label>
+                <input class="manual-input" id="customName" placeholder="可选，自动刷新后会更新">
+              </div>
+            </div>
+            <button class="btn" id="addCustomBtn" type="button">加入自定义基金</button>
+            <div class="add-status" id="addStatus"></div>
+          </div>
+        </dialog>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>计算设置</h2>
+          </div>
+          <div class="settings">
+            <div class="formula">实时收益使用纳指估值网站，每 30 秒刷新；收盘收益使用天天基金估值字段，也可以在表格里手动修正。</div>
+            <div class="field">
+              <label for="currencyMode">货币显示</label>
+              <select class="mode-select" id="currencyMode">
+                <option value="cny">人民币</option>
+                <option value="usd">美元折算</option>
+                <option value="both">人民币 + 美元折算</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="usdCnyRate">美元汇率</label>
+              <div class="scenario">
+                <input class="manual-input" id="usdCnyRate" type="number" min="0.0001" step="0.0001" inputmode="decimal">
+                <button class="btn" id="refreshFxBtn" type="button">更新汇率</button>
+              </div>
+              <div class="helper" id="fxStatus">1 美元 = -- 人民币</div>
+            </div>
+            <div class="field">
+              <label for="calcMode">金额口径</label>
+              <select class="mode-select" id="calcMode">
+                <option value="current">金额是当前持仓市值</option>
+                <option value="base">金额是涨跌前本金</option>
+              </select>
+            </div>
+            <div class="formula" id="formulaText"></div>
+            <div class="field">
+              <label for="scenarioRate">统一涨跌幅试算</label>
+              <div class="scenario">
+                <div class="rate-wrap">
+                  <input class="rate-input" id="scenarioRate" type="number" step="0.01" value="1" inputmode="decimal">
+                  <span>%</span>
+                </div>
+                <button class="btn" id="scenarioBtn" type="button">试算</button>
+              </div>
+            </div>
+          </div>
+          <div class="scenario-result" id="scenarioResult">--</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>提示</h2>
+          </div>
+          <div class="note">
+            <strong>QDII 基金净值通常有时差。</strong> 页面通过本地服务读取 web.345569.xyz 的纳指估值数据作为实时收益参考，同时读取公开基金估值字段作为收盘收益参考。美元折算优先读取 Frankfurter 汇率接口，失败时会尝试备用公开汇率源，也可以手动填写。支付宝、基金公司和最终确认净值可能因汇率、净值披露时间、费用与平台估算规则而不同。这里用于每日跟踪，不构成投资建议。
+            <div class="timestamp" id="lastUpdated">尚未刷新</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const defaultFunds = [];
+
+    const fundChoices = [
+      { code: "270042", name: "广发纳斯达克100ETF联接人民币(QDII)A", category: "passive" },
+      { code: "006479", name: "广发纳斯达克100ETF联接人民币(QDII)C", category: "passive" },
+      { code: "021778", name: "广发纳指100ETF联接(QDII)人民币F", category: "passive" },
+      { code: "016532", name: "嘉实纳斯达克100ETF发起联接(QDII)A人民币", category: "passive" },
+      { code: "016533", name: "嘉实纳斯达克100ETF发起联接(QDII)C人民币", category: "passive" },
+      { code: "021838", name: "嘉实纳斯达克100ETF发起联接(QDII)I人民币", category: "passive" },
+      { code: "000834", name: "大成纳斯达克100ETF联接(QDII)A", category: "passive" },
+      { code: "008971", name: "大成纳斯达克100ETF联接(QDII)C", category: "passive" },
+      { code: "161130", name: "易方达纳斯达克100ETF联接(QDII-LOF)A人民币", category: "passive" },
+      { code: "012870", name: "易方达纳斯达克100ETF联接(QDII-LOF)C人民币", category: "passive" },
+      { code: "040046", name: "华安纳斯达克100ETF联接(QDII)A", category: "passive" },
+      { code: "014978", name: "华安纳斯达克100ETF联接(QDII)C", category: "passive" },
+      { code: "015299", name: "华夏纳斯达克100ETF发起式联接(QDII)A人民币", category: "passive" },
+      { code: "015300", name: "华夏纳斯达克100ETF发起式联接(QDII)C", category: "passive" },
+      { code: "016055", name: "博时纳斯达克100ETF发起式联接(QDII)A人民币", category: "passive" },
+      { code: "016057", name: "博时纳斯达克100ETF发起式联接(QDII)C人民币", category: "passive" },
+      { code: "024237", name: "博时纳斯达克100ETF发起式联接(QDII)I人民币", category: "passive" },
+      { code: "016452", name: "南方纳斯达克100指数发起(QDII)A", category: "passive" },
+      { code: "016453", name: "南方纳斯达克100指数发起(QDII)C", category: "passive" },
+      { code: "021000", name: "南方纳斯达克100指数发起(QDII)I", category: "passive" },
+      { code: "018043", name: "天弘纳斯达克100指数发起(QDII)A", category: "passive" },
+      { code: "018044", name: "天弘纳斯达克100指数发起(QDII)C", category: "passive" },
+      { code: "022525", name: "天弘纳斯达克100指数发起(QDII)D", category: "passive" },
+      { code: "018966", name: "汇添富纳斯达克100ETF发起式联接(QDII)人民币A", category: "passive" },
+      { code: "018967", name: "汇添富纳斯达克100ETF发起式联接(QDII)人民币C", category: "passive" },
+      { code: "021773", name: "汇添富纳斯达克100ETF发起式联接(QDII)人民币E", category: "passive" },
+      { code: "019547", name: "招商纳斯达克100ETF发起式联接(QDII)A", category: "passive" },
+      { code: "019548", name: "招商纳斯达克100ETF发起式联接(QDII)C", category: "passive" },
+      { code: "019172", name: "摩根纳斯达克100指数(QDII)人民币A", category: "passive" },
+      { code: "019173", name: "摩根纳斯达克100指数(QDII)人民币C", category: "passive" },
+      { code: "019441", name: "万家纳斯达克100指数发起式(QDII)A", category: "passive" },
+      { code: "019442", name: "万家纳斯达克100指数发起式(QDII)C", category: "passive" },
+      { code: "019524", name: "华泰柏瑞纳斯达克100ETF发起式联接(QDII)A", category: "passive" },
+      { code: "019525", name: "华泰柏瑞纳斯达克100ETF发起式联接(QDII)C", category: "passive" },
+      { code: "022664", name: "华泰柏瑞纳斯达克100ETF发起式联接(QDII)I", category: "passive" },
+      { code: "019736", name: "宝盈纳斯达克100指数发起(QDII)A人民币", category: "passive" },
+      { code: "019737", name: "宝盈纳斯达克100指数发起(QDII)C人民币", category: "passive" },
+      { code: "160213", name: "国泰纳斯达克100指数(QDII)", category: "passive" },
+      { code: "539001", name: "建信纳斯达克100指数(QDII)A人民币", category: "passive" },
+      { code: "012752", name: "建信纳斯达克100指数(QDII)C人民币", category: "passive" },
+      { code: "023422", name: "建信纳斯达克100指数(QDII)D人民币", category: "passive" },
+      { code: "017436", name: "华宝纳斯达克精选股票发起式(QDII)A", category: "active" },
+      { code: "017437", name: "华宝纳斯达克精选股票发起式(QDII)C", category: "active" },
+      { code: "006555", name: "浦银安盛全球智能科技股票(QDII)A", category: "active" },
+      { code: "014002", name: "浦银安盛全球智能科技股票(QDII)C", category: "active" },
+      { code: "270023", name: "广发全球精选股票(QDII)人民币A", category: "active" },
+      { code: "021277", name: "广发全球精选股票(QDII)人民币C", category: "active" },
+      { code: "011420", name: "广发全球科技三个月定开混合人民币(QDII)A", category: "active" },
+      { code: "011422", name: "广发全球科技三个月定开混合人民币(QDII)C", category: "active" },
+      { code: "017730", name: "嘉实全球产业升级股票发起式(QDII)A", category: "active" },
+      { code: "017731", name: "嘉实全球产业升级股票发起式(QDII)C", category: "active" },
+      { code: "000043", name: "嘉实美国成长股票(QDII)人民币", category: "active" },
+      { code: "000988", name: "嘉实全球互联网股票人民币", category: "active" },
+      { code: "161128", name: "易方达标普信息科技指数(QDII-LOF)A人民币", category: "active" },
+      { code: "012868", name: "易方达标普信息科技指数(QDII-LOF)C人民币", category: "active" },
+      { code: "012920", name: "易方达全球成长精选混合(QDII)A人民币", category: "active" },
+      { code: "012922", name: "易方达全球成长精选混合(QDII)C人民币", category: "active" },
+      { code: "006373", name: "国富全球科技互联混合(QDII)人民币A", category: "active" },
+      { code: "021842", name: "国富全球科技互联混合(QDII)人民币C", category: "active" },
+      { code: "539002", name: "建信新兴市场混合(QDII)A", category: "active" },
+      { code: "018147", name: "建信新兴市场混合(QDII)C", category: "active" },
+      { code: "001668", name: "汇添富全球移动互联混合(QDII)人民币A", category: "active" },
+      { code: "015202", name: "汇添富全球移动互联混合(QDII)人民币C", category: "active" },
+      { code: "015203", name: "汇添富全球移动互联混合(QDII)人民币D", category: "active" },
+      { code: "005698", name: "华夏全球科技先锋混合(QDII)A人民币", category: "active" },
+      { code: "024239", name: "华夏全球科技先锋混合(QDII)C", category: "active" },
+      { code: "002891", name: "华夏移动互联混合(QDII)人民币", category: "active" },
+      { code: "016701", name: "银华海外数字经济量化选股发起式(QDII)A", category: "active" },
+      { code: "016702", name: "银华海外数字经济量化选股发起式(QDII)C", category: "active" },
+      { code: "501226", name: "长城全球新能源车股票发起式(QDII)A", category: "active" },
+      { code: "018036", name: "长城全球新能源车股票发起式(QDII)C", category: "active" },
+      { code: "017144", name: "华宝海外新能源汽车股票发起式(QDII)A", category: "active" },
+      { code: "017145", name: "华宝海外新能源汽车股票发起式(QDII)C", category: "active" },
+      { code: "100055", name: "富国全球科技互联网股票(QDII)A", category: "active" },
+      { code: "022184", name: "富国全球科技互联网股票(QDII)C", category: "active" },
+      { code: "501312", name: "华宝海外科技股票(QDII-LOF)A", category: "active" },
+      { code: "017204", name: "华宝海外科技股票(QDII-LOF)C", category: "active" },
+      { code: "008253", name: "华宝致远混合(QDII)A", category: "active" },
+      { code: "008254", name: "华宝致远混合(QDII)C", category: "active" },
+      { code: "017091", name: "景顺长城纳斯达克科技ETF联接(QDII)A人民币", category: "active" },
+      { code: "017093", name: "景顺长城纳斯达克科技ETF联接(QDII)C人民币", category: "active" },
+      { code: "019118", name: "景顺长城纳斯达克科技ETF联接(QDII)E人民币", category: "active" },
+      { code: "016664", name: "天弘全球高端制造混合(QDII)A", category: "active" },
+      { code: "016665", name: "天弘全球高端制造混合(QDII)C", category: "active" }
+    ];
+
+    const categoryLabels = {
+      passive: "被动基",
+      active: "主动/主题基"
+    };
+
+    const impactAliases = {
+      "017436": ["华宝纳斯达克精选"],
+      "017437": ["华宝纳斯达克精选"],
+      "006555": ["浦银安盛全球智能科技"],
+      "014002": ["浦银安盛全球智能科技"],
+      "270023": ["广发全球精选"],
+      "021277": ["广发全球精选"],
+      "017730": ["嘉实全球产业升级"],
+      "017731": ["嘉实全球产业升级"],
+      "000043": ["嘉实美国成长"],
+      "161128": ["易方达标普信息科技"],
+      "012868": ["易方达标普信息科技"],
+      "012920": ["易方达全球成长精选"],
+      "012922": ["易方达全球成长精选"],
+      "006373": ["国富全球科技"],
+      "021842": ["国富全球科技"],
+      "539002": ["建信新兴市场"],
+      "018147": ["建信新兴市场"],
+      "001668": ["汇添富全球移动互联"],
+      "015202": ["汇添富全球移动互联"],
+      "015203": ["汇添富全球移动互联"],
+      "005698": ["华夏全球科技先锋"],
+      "024239": ["华夏全球科技先锋"],
+      "002891": ["华夏移动互联"],
+      "016701": ["银华海外数字经济"],
+      "016702": ["银华海外数字经济"],
+      "501226": ["长城全球新能源车"],
+      "018036": ["长城全球新能源车"],
+      "017144": ["华宝海外新能源汽车"],
+      "017145": ["华宝海外新能源汽车"],
+      "501312": ["华宝海外科技"],
+      "017204": ["华宝海外科技"],
+      "008253": ["华宝致远混合"],
+      "008254": ["华宝致远混合"],
+      "017091": ["景顺长城纳斯达克科技"],
+      "017093": ["景顺长城纳斯达克科技"],
+      "019118": ["景顺长城纳斯达克科技"],
+      "016664": ["天弘全球高端制造"],
+      "016665": ["天弘全球高端制造"]
+    };
+
+    const storageKey = "nasdaq-fund-calculator-public-v1";
+    let funds = loadFunds();
+    let calcMode = localStorage.getItem("nasdaq-calc-mode") || "current";
+    let currencyMode = localStorage.getItem("nasdaq-currency-mode") || "both";
+    let usdCnyRate = toPositiveNumber(localStorage.getItem("nasdaq-usd-cny-rate")) || 7.2;
+    let isRefreshing = false;
+    let refreshError = "";
+
+    const rowsEl = document.getElementById("fundRows");
+    const totalAmountLabelEl = document.getElementById("totalAmountLabel");
+    const totalAmountEl = document.getElementById("totalAmount");
+    const totalAmountAltEl = document.getElementById("totalAmountAlt");
+    const totalProfitLabelEl = document.getElementById("totalProfitLabel");
+    const totalProfitEl = document.getElementById("totalProfit");
+    const totalProfitAltEl = document.getElementById("totalProfitAlt");
+    const closeProfitLabelEl = document.getElementById("closeProfitLabel");
+    const closeProfitEl = document.getElementById("closeProfit");
+    const closeProfitAltEl = document.getElementById("closeProfitAlt");
+    const weightedRateEl = document.getElementById("weightedRate");
+    const loadedCountEl = document.getElementById("loadedCount");
+    const holdingsStatsEl = document.getElementById("holdingsStats");
+    const dataStatusEl = document.getElementById("dataStatus");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const jumpAddBtn = document.getElementById("jumpAddBtn");
+    const addPanelEl = document.getElementById("addPanel");
+    const closeAddBtn = document.getElementById("closeAddBtn");
+    const calcModeEl = document.getElementById("calcMode");
+    const currencyModeEl = document.getElementById("currencyMode");
+    const usdCnyRateEl = document.getElementById("usdCnyRate");
+    const refreshFxBtn = document.getElementById("refreshFxBtn");
+    const fxStatusEl = document.getElementById("fxStatus");
+    const formulaTextEl = document.getElementById("formulaText");
+    const scenarioRateEl = document.getElementById("scenarioRate");
+    const scenarioBtn = document.getElementById("scenarioBtn");
+    const scenarioResultEl = document.getElementById("scenarioResult");
+    const lastUpdatedEl = document.getElementById("lastUpdated");
+    const fundTypeEl = document.getElementById("fundType");
+    const fundSearchEl = document.getElementById("fundSearch");
+    const fundSearchHintEl = document.getElementById("fundSearchHint");
+    const fundChoiceEl = document.getElementById("fundChoice");
+    const fundChoiceHintEl = document.getElementById("fundChoiceHint");
+    const newAmountEl = document.getElementById("newAmount");
+    const addFundBtn = document.getElementById("addFundBtn");
+    const customCodeEl = document.getElementById("customCode");
+    const customNameEl = document.getElementById("customName");
+    const addCustomBtn = document.getElementById("addCustomBtn");
+    const addStatusEl = document.getElementById("addStatus");
+
+    calcModeEl.value = calcMode;
+    currencyModeEl.value = currencyMode;
+    usdCnyRateEl.value = formatPlain(usdCnyRate);
+    renderFundSelector();
+    render();
+    refreshExchangeRate(false);
+    refreshRates();
+    window.setInterval(() => {
+      refreshRates({ silent: true });
+    }, 30000);
+
+    refreshBtn.addEventListener("click", refreshRates);
+    jumpAddBtn.addEventListener("click", () => {
+      openAddPanel();
+    });
+    closeAddBtn.addEventListener("click", closeAddPanel);
+    addPanelEl.addEventListener("click", (event) => {
+      if (event.target === addPanelEl) closeAddPanel();
+    });
+    resetBtn.addEventListener("click", () => {
+      localStorage.removeItem(storageKey);
+      funds = defaultFunds.map(normalizeFundRecord);
+      render();
+      refreshRates();
+    });
+
+    calcModeEl.addEventListener("change", () => {
+      calcMode = calcModeEl.value;
+      localStorage.setItem("nasdaq-calc-mode", calcMode);
+      render();
+    });
+
+    currencyModeEl.addEventListener("change", () => {
+      currencyMode = currencyModeEl.value;
+      localStorage.setItem("nasdaq-currency-mode", currencyMode);
+      render();
+    });
+
+    usdCnyRateEl.addEventListener("input", () => {
+      const nextRate = toPositiveNumber(usdCnyRateEl.value);
+      if (!nextRate) return;
+      usdCnyRate = nextRate;
+      localStorage.setItem("nasdaq-usd-cny-rate", String(usdCnyRate));
+      updateFxStatus("手动汇率");
+      render();
+    });
+
+    refreshFxBtn.addEventListener("click", () => refreshExchangeRate(true));
+
+    scenarioBtn.addEventListener("click", renderScenario);
+    scenarioRateEl.addEventListener("input", renderScenario);
+    fundTypeEl.addEventListener("change", renderFundSelector);
+    fundSearchEl.addEventListener("input", renderFundSelector);
+    fundChoiceEl.addEventListener("change", updateFundChoiceHint);
+    addFundBtn.addEventListener("click", addSelectedFund);
+    addCustomBtn.addEventListener("click", addCustomFund);
+
+    function loadFunds() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey));
+        if (!Array.isArray(saved)) return defaultFunds.map(normalizeFundRecord);
+        const merged = defaultFunds.map((base) => normalizeFundRecord({ ...base, ...(saved.find((item) => item.code === base.code) || {}) }));
+        saved.forEach((item) => {
+          if (item && item.code && !merged.some((fund) => fund.code === item.code)) {
+            merged.push(normalizeFundRecord({ category: "custom", amount: 0, ...item }));
+          }
+        });
+        return merged;
+      } catch {
+        return defaultFunds.map(normalizeFundRecord);
+      }
+    }
+
+    function normalizeFundRecord(fund) {
+      const legacyRate = toNumber(fund.realtimeRate ?? fund.rate);
+      const closeRate = toNumber(fund.closeRate ?? fund.rate);
+      const source = fund.source || "";
+      const isImpactSource = source === "纳指估值";
+      return {
+        ...fund,
+        amount: toNumber(fund.amount),
+        realtimeRate: legacyRate,
+        closeRate,
+        realtimeSource: fund.realtimeSource || (isImpactSource ? source : ""),
+        closeSource: fund.closeSource || (!isImpactSource ? source : ""),
+        realtimeTime: fund.realtimeTime || (isImpactSource ? fund.time || "" : ""),
+        closeTime: fund.closeTime || (!isImpactSource ? fund.time || "" : ""),
+        realtimeError: fund.realtimeError || "",
+        closeError: fund.closeError || ""
+      };
+    }
+
+    function saveFunds() {
+      localStorage.setItem(storageKey, JSON.stringify(funds));
+    }
+
+    function hasRealtimeData(fund) {
+      return Boolean(fund.realtimeSource && !fund.realtimeError);
+    }
+
+    function render() {
+      rowsEl.innerHTML = "";
+      funds.forEach((fund, index) => {
+        const hasRealtime = hasRealtimeData(fund);
+        const realtimeProfit = hasRealtime ? dailyProfit(fund.amount, fund.realtimeRate) : 0;
+        const closeProfit = dailyProfit(fund.amount, fund.closeRate);
+        const realtimeStatus = fund.realtimeError ? "实时需手动" : `实时 ${fund.realtimeSource || "--"}`;
+        const closeStatus = fund.closeError ? "收盘需手动" : `收盘 ${fund.closeSource || "--"}`;
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="fund-cell">
+            <span class="fund-name">${escapeHtml(fund.name)}</span>
+            <span class="code">${fund.code}</span>
+          </td>
+          <td class="money-cell">
+            <input class="money-input" type="number" min="0" step="0.01" inputmode="decimal" value="${fund.amount.toFixed(2)}" aria-label="${fund.code} 持仓金额">
+            <span class="converted">${formatMoneyAlt(fund.amount, "amount")}</span>
+          </td>
+          <td class="rate-cell">
+            <div class="rate-wrap readonly ${hasRealtime ? tone(fund.realtimeRate) : "neutral"}">
+              <span>${hasRealtime ? formatPlain(fund.realtimeRate) : "--"}</span>
+              <span>${hasRealtime ? "%" : ""}</span>
+            </div>
+          </td>
+          <td class="profit-cell">
+            <span class="profit realtime-profit ${hasRealtime ? tone(realtimeProfit) : "neutral"}">${hasRealtime ? formatMoneyPrimary(realtimeProfit) : "等待实时数据"}</span>
+            <span class="converted">${hasRealtime ? formatMoneyAlt(realtimeProfit, "profit") : ""}</span>
+          </td>
+          <td class="rate-cell">
+            <div class="rate-wrap">
+              <input class="rate-input close-rate-input" type="number" step="0.01" inputmode="decimal" value="${formatPlain(fund.closeRate)}" aria-label="${fund.code} 收盘涨跌幅">
+              <span>%</span>
+            </div>
+          </td>
+          <td class="profit-cell">
+            <span class="profit close-profit ${tone(closeProfit)}">${formatMoneyPrimary(closeProfit)}</span>
+            <span class="converted">${formatMoneyAlt(closeProfit, "profit")}</span>
+          </td>
+          <td>
+            <span>${fund.estimatedNav ? fund.estimatedNav : "--"}</span>
+            <span class="fund-name">${fund.closeTime || fund.realtimeTime || ""}</span>
+          </td>
+          <td>
+            <div class="source-stack">
+              <span class="source-pill ${fund.realtimeError ? "warn" : ""}">${escapeHtml(realtimeStatus)}</span>
+              <span class="source-pill ${fund.closeError || fund.closeSource === "手动收盘" ? "warn" : ""}">${escapeHtml(closeStatus)}</span>
+            </div>
+          </td>
+          <td><button class="remove-btn" type="button" aria-label="删除 ${fund.code}">删除</button></td>
+        `;
+
+        const amountInput = row.querySelector(".money-input");
+        const closeRateInput = row.querySelector(".close-rate-input");
+        const realtimeProfitEl = row.querySelector(".realtime-profit");
+        const closeProfitEl = row.querySelector(".close-profit");
+        const amountAltEl = row.querySelector(".money-cell .converted");
+        const realtimeProfitAltEl = realtimeProfitEl.nextElementSibling;
+        const closeProfitAltEl = closeProfitEl.nextElementSibling;
+        const removeBtn = row.querySelector(".remove-btn");
+        amountInput.addEventListener("input", () => {
+          fund.amount = toNumber(amountInput.value);
+          saveFunds();
+          const nextHasRealtime = hasRealtimeData(fund);
+          const nextRealtimeProfit = nextHasRealtime ? dailyProfit(fund.amount, fund.realtimeRate) : 0;
+          const nextCloseProfit = dailyProfit(fund.amount, fund.closeRate);
+          amountAltEl.textContent = formatMoneyAlt(fund.amount, "amount");
+          realtimeProfitEl.textContent = nextHasRealtime ? formatMoneyPrimary(nextRealtimeProfit) : "等待实时数据";
+          realtimeProfitAltEl.textContent = nextHasRealtime ? formatMoneyAlt(nextRealtimeProfit, "profit") : "";
+          realtimeProfitEl.className = `profit realtime-profit ${nextHasRealtime ? tone(nextRealtimeProfit) : "neutral"}`;
+          closeProfitEl.textContent = formatMoneyPrimary(nextCloseProfit);
+          closeProfitAltEl.textContent = formatMoneyAlt(nextCloseProfit, "profit");
+          closeProfitEl.className = `profit close-profit ${tone(nextCloseProfit)}`;
+          renderTotals();
+        });
+        closeRateInput.addEventListener("input", () => {
+          fund.closeRate = toNumber(closeRateInput.value);
+          fund.closeSource = "手动收盘";
+          fund.closeError = "";
+          saveFunds();
+          const nextCloseProfit = dailyProfit(fund.amount, fund.closeRate);
+          closeProfitEl.textContent = formatMoneyPrimary(nextCloseProfit);
+          closeProfitAltEl.textContent = formatMoneyAlt(nextCloseProfit, "profit");
+          closeProfitEl.className = `profit close-profit ${tone(nextCloseProfit)}`;
+          renderTotals();
+        });
+        removeBtn.addEventListener("click", () => {
+          funds.splice(index, 1);
+          saveFunds();
+          setAddStatus(`已删除 ${fund.code}。`);
+          render();
+        });
+        rowsEl.appendChild(row);
+      });
+
+      renderFormula();
+      renderTotals();
+      renderScenario();
+    }
+
+    function renderTotals() {
+      const totalAmount = funds.reduce((sum, fund) => sum + toNumber(fund.amount), 0);
+      const realtimeFunds = funds.filter(hasRealtimeData);
+      const realtimeAmount = realtimeFunds.reduce((sum, fund) => sum + toNumber(fund.amount), 0);
+      const realtimeProfit = realtimeFunds.reduce((sum, fund) => sum + dailyProfit(fund.amount, fund.realtimeRate), 0);
+      const closeProfit = funds.reduce((sum, fund) => sum + dailyProfit(fund.amount, fund.closeRate), 0);
+      const realtimeWeighted = realtimeAmount === 0 ? 0 : realtimeFunds.reduce((sum, fund) => sum + toNumber(fund.amount) * toNumber(fund.realtimeRate), 0) / realtimeAmount;
+      const closeWeighted = totalAmount === 0 ? 0 : funds.reduce((sum, fund) => sum + toNumber(fund.amount) * toNumber(fund.closeRate), 0) / totalAmount;
+      const realtimeLoaded = realtimeFunds.length;
+      const closeLoaded = funds.filter((fund) => fund.closeSource && !fund.closeError).length;
+
+      totalAmountLabelEl.textContent = currencyMode === "usd" ? "当前持仓合计（美元折算）" : "当前持仓合计（人民币）";
+      totalProfitLabelEl.textContent = currencyMode === "usd" ? "实时收益合计（美元折算）" : "实时收益合计（人民币）";
+      closeProfitLabelEl.textContent = currencyMode === "usd" ? "收盘收益合计（美元折算）" : "收盘收益合计（人民币）";
+      totalAmountEl.textContent = formatMoneyPrimary(totalAmount);
+      totalAmountAltEl.textContent = formatMoneyAlt(totalAmount, "amount");
+      totalProfitEl.textContent = realtimeLoaded ? formatMoneyPrimary(realtimeProfit) : "等待实时数据";
+      totalProfitAltEl.textContent = realtimeLoaded ? formatMoneyAlt(realtimeProfit, "profit") : "请通过本地服务地址打开页面";
+      totalProfitEl.className = realtimeLoaded ? tone(realtimeProfit) : "neutral";
+      closeProfitEl.textContent = formatMoneyPrimary(closeProfit);
+      closeProfitAltEl.textContent = formatMoneyAlt(closeProfit, "profit");
+      closeProfitEl.className = tone(closeProfit);
+      loadedCountEl.textContent = realtimeLoaded ? `实时 ${formatPlain(realtimeWeighted)}%` : "实时 --";
+      loadedCountEl.className = realtimeLoaded ? tone(realtimeWeighted) : "neutral";
+      weightedRateEl.textContent = `收盘 ${formatPlain(closeWeighted)}% · 数据 ${realtimeLoaded}/${funds.length} / ${closeLoaded}/${funds.length}`;
+      weightedRateEl.className = tone(closeWeighted);
+      holdingsStatsEl.innerHTML = `
+        <span class="stat-chip">持仓 ${funds.length} 只</span>
+        <span class="stat-chip">实时 ${realtimeLoaded}/${funds.length}</span>
+        <span class="stat-chip">收盘 ${closeLoaded}/${funds.length}</span>
+        <span class="stat-chip">合计 ${formatMoneyPrimary(totalAmount)}</span>
+      `;
+      if (refreshError) {
+        dataStatusEl.textContent = refreshError;
+      } else if (realtimeLoaded === funds.length && closeLoaded === funds.length) {
+        dataStatusEl.textContent = "实时与收盘数据已加载";
+      } else {
+        dataStatusEl.textContent = "部分基金待手动修正";
+      }
+    }
+
+    function renderFormula() {
+      formulaTextEl.textContent = calcMode === "current"
+        ? "当前持仓市值口径：今日收益 = 当前金额 × 日涨跌幅 ÷ (100 + 日涨跌幅)。这个口径适合你填的是支付宝当前显示金额。"
+        : "涨跌前本金口径：今日收益 = 金额 × 日涨跌幅 ÷ 100。这个口径适合你填的是昨日收盘前的本金或市值。";
+    }
+
+    function renderScenario() {
+      const rate = toNumber(scenarioRateEl.value);
+      const total = funds.reduce((sum, fund) => sum + dailyProfit(fund.amount, rate), 0);
+      scenarioResultEl.innerHTML = `合计约${formatMoneyPrimary(total)}<span class="converted">${formatMoneyAlt(total, "profit")}</span>`;
+      scenarioResultEl.className = `scenario-result ${tone(total)}`;
+    }
+
+    function renderFundSelector() {
+      const selectedType = fundTypeEl.value;
+      const query = normalizeSearchText(fundSearchEl.value);
+      const typeChoices = fundChoices.filter((fund) => selectedType === "all" || fund.category === selectedType);
+      const choices = query
+        ? typeChoices.filter((fund) => normalizeSearchText(`${fund.code} ${fund.name} ${categoryLabels[fund.category] || ""}`).includes(query))
+        : typeChoices;
+      fundChoiceEl.innerHTML = choices
+        .map((fund) => `<option value="${fund.code}">${escapeHtml(fund.name)}（${fund.code}）</option>`)
+        .join("");
+      fundChoiceEl.disabled = choices.length === 0;
+      renderFundSearchHint(choices.length, typeChoices.length, query);
+      updateFundChoiceHint();
+    }
+
+    function renderFundSearchHint(matchCount, totalCount, query) {
+      if (!query) {
+        fundSearchHintEl.textContent = `当前显示 ${totalCount} 只基金。`;
+        fundSearchHintEl.style.color = "var(--muted)";
+        return;
+      }
+      fundSearchHintEl.textContent = matchCount
+        ? `找到 ${matchCount} 只匹配基金。`
+        : "没有匹配结果，可切换类型或用自定义基金加入。";
+      fundSearchHintEl.style.color = matchCount ? "var(--muted)" : "var(--amber)";
+    }
+
+    function updateFundChoiceHint() {
+      const choice = findChoice(fundChoiceEl.value);
+      if (!choice) {
+        fundChoiceHintEl.textContent = "没有可选基金。可调整搜索词，或用自定义基金加入。";
+        return;
+      }
+      const label = categoryLabels[choice.category] || "自定义";
+      fundChoiceHintEl.textContent = `${label}，代码 ${choice.code}。加入后会尝试自动刷新涨跌幅。`;
+    }
+
+    function addSelectedFund() {
+      const choice = findChoice(fundChoiceEl.value);
+      if (!choice) return setAddStatus("请先选择基金名称。", true);
+      addFundToHoldings({ ...choice, amount: toNumber(newAmountEl.value), realtimeRate: 0, closeRate: 0 });
+      newAmountEl.value = "";
+    }
+
+    function addCustomFund() {
+      const code = customCodeEl.value.trim();
+      if (!/^\d{6}$/.test(code)) return setAddStatus("请输入 6 位基金代码。", true);
+      const choice = findChoice(code);
+      const name = customNameEl.value.trim() || choice?.name || `自定义基金 ${code}`;
+      addFundToHoldings({ code, name, category: choice?.category || "custom", amount: toNumber(newAmountEl.value), realtimeRate: 0, closeRate: 0 });
+      customCodeEl.value = "";
+      customNameEl.value = "";
+      newAmountEl.value = "";
+    }
+
+    function addFundToHoldings(newFund) {
+      const existing = funds.find((fund) => fund.code === newFund.code);
+      if (existing) {
+        existing.amount = toNumber(existing.amount) + toNumber(newFund.amount);
+        existing.name = newFund.name || existing.name;
+        existing.category = newFund.category || existing.category;
+        saveFunds();
+        render();
+        setAddStatus(`已存在 ${existing.code}，持仓金额已合并。`);
+        refreshRates({ silent: true }).then(() => {
+          saveFunds();
+          render();
+        });
+        return;
+      }
+
+      const fund = {
+        code: newFund.code,
+        name: newFund.name,
+        category: newFund.category || "custom",
+        amount: toNumber(newFund.amount),
+        realtimeRate: toNumber(newFund.realtimeRate),
+        closeRate: toNumber(newFund.closeRate),
+        closeSource: "手动收盘"
+      };
+      funds.push(fund);
+      saveFunds();
+      render();
+      setAddStatus(`已加入 ${fund.code}。`);
+      refreshRates({ silent: true }).then(() => {
+        saveFunds();
+        render();
+      });
+    }
+
+    function findChoice(code) {
+      return fundChoices.find((fund) => fund.code === code);
+    }
+
+    function normalizeSearchText(value) {
+      return String(value || "")
+        .replace(/\s+/g, "")
+        .replace(/[（）()]/g, "")
+        .toLowerCase();
+    }
+
+    function setAddStatus(message, isWarning = false) {
+      addStatusEl.textContent = message;
+      addStatusEl.style.color = isWarning ? "var(--red)" : "var(--muted)";
+    }
+
+    function openAddPanel() {
+      if (addPanelEl.open) return;
+      if (typeof addPanelEl.showModal === "function") {
+        addPanelEl.showModal();
+      } else {
+        addPanelEl.setAttribute("open", "");
+      }
+      window.setTimeout(() => fundSearchEl.focus({ preventScroll: true }), 30);
+    }
+
+    function closeAddPanel() {
+      if (typeof addPanelEl.close === "function") {
+        addPanelEl.close();
+      } else {
+        addPanelEl.removeAttribute("open");
+      }
+    }
+
+    async function refreshRates(options = {}) {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      const refreshStartedAt = Date.now();
+      refreshBtn.classList.add("loading");
+      dataStatusEl.classList.add("refreshing");
+      dataStatusEl.setAttribute("aria-busy", "true");
+      if (!options.silent) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "刷新中...";
+      } else {
+        refreshBtn.textContent = "自动刷新中...";
+      }
+      dataStatusEl.textContent = "正在读取实时与收盘收益数据";
+
+      try {
+        refreshError = "";
+        const impactResult = await hydrateFundsFromImpact()
+          .then(() => ({ status: "fulfilled" }))
+          .catch((reason) => ({ status: "rejected", reason }));
+        for (const fund of funds) {
+          await hydrateFund(fund);
+        }
+        if (impactResult.status === "rejected") {
+          const message = impactResult.reason?.message || "实时数据刷新失败，收盘数据已尽量更新";
+          funds.forEach((fund) => {
+            fund.realtimeError = message;
+          });
+          refreshError = message;
+        }
+
+        saveFunds();
+        lastUpdatedEl.textContent = `上次刷新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+      } catch (error) {
+        refreshError = error.message || "自动刷新失败";
+        lastUpdatedEl.textContent = `刷新失败：${refreshError}`;
+      } finally {
+        const visibleFor = Date.now() - refreshStartedAt;
+        if (visibleFor < 700) {
+          await new Promise((resolve) => window.setTimeout(resolve, 700 - visibleFor));
+        }
+        isRefreshing = false;
+        refreshBtn.classList.remove("loading");
+        dataStatusEl.classList.remove("refreshing");
+        dataStatusEl.removeAttribute("aria-busy");
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "刷新涨跌幅";
+        render();
+      }
+    }
+
+    async function refreshExchangeRate(showStatus) {
+      if (showStatus) {
+        refreshFxBtn.disabled = true;
+        refreshFxBtn.textContent = "更新中...";
+        updateFxStatus("正在读取最新汇率");
+      }
+
+      try {
+        const rate = await loadUsdCnyRate();
+        usdCnyRate = rate;
+        usdCnyRateEl.value = formatPlain(rate);
+        localStorage.setItem("nasdaq-usd-cny-rate", String(rate));
+        updateFxStatus("自动汇率");
+        render();
+      } catch (error) {
+        updateFxStatus(`自动汇率失败，可手动填写；当前使用 ${formatPlain(usdCnyRate)}`);
+      } finally {
+        refreshFxBtn.disabled = false;
+        refreshFxBtn.textContent = "更新汇率";
+      }
+    }
+
+    async function loadUsdCnyRate() {
+      try {
+        const frankfurter = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=CNY", { cache: "no-store" });
+        if (frankfurter.ok) {
+          const data = await frankfurter.json();
+          const rate = toPositiveNumber(data?.rates?.CNY);
+          if (rate) return rate;
+        }
+      } catch {
+        // Try the fallback source below.
+      }
+
+      const cdn = await fetch("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json", { cache: "no-store" });
+      if (!cdn.ok) throw new Error("汇率接口失败");
+      const data = await cdn.json();
+      const rate = toPositiveNumber(data?.usd?.cny);
+      if (!rate) throw new Error("汇率无数据");
+      return rate;
+    }
+
+    function updateFxStatus(prefix) {
+      fxStatusEl.textContent = `${prefix}：1 美元 = ${formatPlain(usdCnyRate)} 人民币`;
+    }
+
+    async function hydrateFundsFromImpact() {
+      const data = await loadImpactData();
+      const indexRate = findImpactIndexRate(data);
+      const impactFunds = Array.isArray(data?.category1mpacts) ? data.category1mpacts : [];
+      const timestamp = data?.timestamp ? `估值 ${data.timestamp}` : "";
+
+      funds.forEach((fund) => {
+        const match = fund.category === "passive" ? null : findImpactFundMatch(fund, impactFunds);
+        if (match) {
+          fund.realtimeRate = parsePercent(match.estimatedImpact);
+          fund.realtimeTime = timestamp || match.time || "";
+          fund.realtimeSource = "纳指估值";
+          fund.realtimeError = "";
+          fund.impactName = match.name;
+          return;
+        }
+
+        if (fund.category === "passive" && indexRate !== null) {
+          fund.realtimeRate = indexRate;
+          fund.realtimeTime = timestamp ? `纳斯达克100 ${timestamp}` : "纳斯达克100";
+          fund.realtimeSource = "纳指估值";
+          fund.realtimeError = "";
+          fund.impactName = "纳斯达克100";
+          return;
+        }
+
+        fund.realtimeError = "纳指估值未匹配";
+      });
+    }
+
+    async function loadImpactData() {
+      if (window.location.protocol === "file:") {
+        throw new Error("请通过网站服务器地址打开页面，file 打开无法读取实时数据");
+      }
+      const response = await fetch(`/api/nasdaq-impact?rt=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(response.status === 404
+          ? "请通过本地服务地址打开页面"
+          : `纳指估值读取失败：${response.status}`);
+      }
+      const data = await response.json();
+      if (!data || !Array.isArray(data.indexs)) throw new Error("纳指估值数据格式异常");
+      return data;
+    }
+
+    function findImpactIndexRate(data) {
+      const indexs = Array.isArray(data?.indexs) ? data.indexs : [];
+      const nasdaq100 = indexs.find((item) => String(item.inxnm || "").includes("纳斯达克100"));
+      const nasdaq = indexs.find((item) => String(item.inxnm || "").includes("纳斯达克"));
+      const rawRate = (nasdaq100 || nasdaq)?.rise_fall_per;
+      if (rawRate == null) return null;
+      const rate = parsePercent(rawRate);
+      return Number.isFinite(rate) ? rate : null;
+    }
+
+    function findImpactFundMatch(fund, impactFunds) {
+      const aliases = impactAliases[fund.code] || [];
+      const aliasMatch = aliases
+        .map((alias) => impactFunds.find((item) => normalizeFundName(item.name).includes(normalizeFundName(alias))))
+        .find(Boolean);
+      if (aliasMatch) return aliasMatch;
+
+      const fundName = normalizeFundName(fund.name);
+      if (!fundName) return null;
+      return impactFunds.find((item) => {
+        const impactName = normalizeFundName(item.name);
+        return impactName && (fundName.includes(impactName) || impactName.includes(fundName));
+      }) || null;
+    }
+
+    function normalizeFundName(name) {
+      return String(name || "")
+        .replace(/\([^)]+\)/g, "")
+        .replace(/（[^）]+）/g, "")
+        .replace(/人民币|基金|股票|混合|指数|发起式|发起|联接|连接|ETF|LOF|QDII|A|C|F|类|份额/gi, "")
+        .replace(/[^\u4e00-\u9fa5a-z0-9]/gi, "")
+        .toLowerCase();
+    }
+
+    async function hydrateFund(fund) {
+      try {
+        const data = await loadFundData(fund.code);
+        if (!data || !data.fundcode) throw new Error("接口无数据");
+        fund.name = data.name || fund.name;
+        fund.closeRate = toNumber(data.gszzl);
+        fund.estimatedNav = data.gsz || data.dwjz || "";
+        fund.closeTime = data.gztime || data.jzrq || "";
+        fund.closeSource = "天天基金";
+        fund.closeError = "";
+      } catch (error) {
+        fund.closeSource = fund.closeSource || "手动收盘";
+        fund.closeError = error.message || "读取失败";
+      }
+    }
+
+    function loadFundData(code) {
+      return new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("请求超时"));
+        }, 9000);
+
+        const previous = window.jsonpgz;
+        const script = document.createElement("script");
+
+        window.jsonpgz = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("网络失败"));
+        };
+
+        script.src = `https://fundgz.1234567.com.cn/js/${code}.js?rt=${Date.now()}`;
+        document.body.appendChild(script);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          window.jsonpgz = previous;
+          script.remove();
+        }
+      });
+    }
+
+    function dailyProfit(amount, rate) {
+      const value = toNumber(amount);
+      const pct = toNumber(rate);
+      if (calcMode === "current") {
+        const denominator = 100 + pct;
+        return denominator === 0 ? 0 : value * pct / denominator;
+      }
+      return value * pct / 100;
+    }
+
+    function toNumber(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function toPositiveNumber(value) {
+      const number = Number(value);
+      return Number.isFinite(number) && number > 0 ? number : 0;
+    }
+
+    function parsePercent(value) {
+      const number = Number(String(value ?? "").replace("%", "").trim());
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat("zh-CN", {
+        style: "currency",
+        currency: "CNY",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(toNumber(value));
+    }
+
+    function formatMoneyPrimary(value) {
+      if (currencyMode === "usd") return formatUsd(value);
+      return formatCny(value);
+    }
+
+    function formatMoneyAlt(value, kind) {
+      if (currencyMode === "cny") return "";
+      if (currencyMode === "usd") return `折合人民币 ${formatCnyNumber(value)}`;
+      return `约美元 ${formatUsdNumber(value)}`;
+    }
+
+    function formatCny(value) {
+      return `人民币 ${formatCnyNumber(value)}`;
+    }
+
+    function formatCnyNumber(value) {
+      return new Intl.NumberFormat("zh-CN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(toNumber(value));
+    }
+
+    function formatUsd(value) {
+      return `美元 ${formatUsdNumber(value)}`;
+    }
+
+    function formatUsdNumber(value) {
+      const dollars = usdCnyRate ? toNumber(value) / usdCnyRate : 0;
+      return new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(dollars);
+    }
+
+    function formatPlain(value) {
+      return Number(toNumber(value).toFixed(4)).toString();
+    }
+
+    function tone(value) {
+      const number = toNumber(value);
+      if (number > 0) return "positive";
+      if (number < 0) return "negative";
+      return "neutral";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
